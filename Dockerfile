@@ -1,6 +1,6 @@
 # base on https://github.com/bjornmolin/rust-minimal-docker
 
-ARG BINARY_NAME_DEFAULT=service_TEMPLATENAME
+ARG BINARY_NAME_DEFAULT=service_planet
 
 FROM clux/muslrust:stable as builder
 RUN groupadd -g 10001 -r dockergrp && useradd -r -g dockergrp -u 10001 dockeruser
@@ -42,4 +42,4 @@ COPY static/ /
 # Start with an execution list (there is no sh in a scratch image)
 # No shell => no variable expansion, |, <, >, etc
 # Hard coded start command
-CMD ["/service_TEMPLATENAME"]
+CMD ["/service_planet"]

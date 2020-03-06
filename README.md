@@ -1,4 +1,3 @@
-# template_service
-template for all services for Hotfimbor
+# service_planet
+this service is responsible for the planet for Horfimbor
 
-change TEMPLATENAME by the name of the service
