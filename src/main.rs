@@ -8,6 +8,12 @@ use eventsourcing::eventstore::EventStore;
 
 use eventsourcing::{eventstore::MemoryEventStore, prelude::*, Result};
 
+use planet_interface::PublicCommands;
+
+mod commands;
+
+use commands::PrivateCommands;
+
 const DOMAIN_VERSION: &str = "1.0";
 
 
@@ -40,15 +46,16 @@ enum PlanetEvent {
 }
 
 
-enum PlanetCommand {
-    ChangePopulation { pop_change: i64 },
+enum PlanetCommands {
+    Public(PublicCommands),
+    Private(PrivateCommands),
 }
 
 struct Planet;
 
 impl Aggregate for Planet {
     type Event = PlanetEvent;
-    type Command = PlanetCommand;
+    type Command = PlanetCommands;
     type State = PlanetData;
 
     fn apply_event(state: &Self::State, evt: &Self::Event) -> Result<Self::State> {
@@ -64,16 +71,27 @@ impl Aggregate for Planet {
     }
 
     fn handle_command(state: &Self::State, cmd: &Self::Command) -> Result<Vec<Self::Event>> {
-        let evt = match *cmd {
-            PlanetCommand::ChangePopulation { pop_change } => {
-                if pop_change > 0 {
-                    PlanetEvent::PopulationUpdated { pop: state.pop + pop_change as u64 }
-                } else {
-                    let killed = -pop_change as u64;
-                    if killed > state.pop {
-                        PlanetEvent::PopulationUpdated { pop: 0 }
-                    } else {
-                        PlanetEvent::PopulationUpdated { pop: state.pop - killed }
+        let evt = match cmd {
+            PlanetCommands::Private(private_command) => {
+                match private_command {
+                    PrivateCommands::Census => {
+                        PlanetEvent::PopulationUpdated { pop: state.pop +12 }
+                    }
+                }
+            }
+            PlanetCommands::Public(public_command) => {
+                match public_command {
+                    PublicCommands::ChangePopulation { pop_change } => {
+                        if *pop_change > 0 {
+                            PlanetEvent::PopulationUpdated { pop: state.pop + *pop_change as u64 }
+                        } else {
+                            let killed = -pop_change as u64;
+                            if killed > state.pop {
+                                PlanetEvent::PopulationUpdated { pop: 0 }
+                            } else {
+                                PlanetEvent::PopulationUpdated { pop: state.pop - killed }
+                            }
+                        }
                     }
                 }
             }
@@ -90,8 +108,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let default_planet = PlanetData::default();
     println!("default_planet: {:?}", default_planet);
 
-    let add_colon = PlanetCommand::ChangePopulation { pop_change: 1000 };
-    let kill_colon = PlanetCommand::ChangePopulation { pop_change: -570 };
+    let add_colon = PlanetCommands::Public(PublicCommands::ChangePopulation { pop_change: 1000 })  ;
+    let kill_colon = PlanetCommands::Public( PublicCommands::ChangePopulation { pop_change: -570 });
 
     let events_add_colon = Planet::handle_command(&default_planet, &add_colon)?;
     planet_store.append(events_add_colon[0].clone(), "planet")?;
