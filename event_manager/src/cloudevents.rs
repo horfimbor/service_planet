@@ -28,7 +28,7 @@ impl<E> From<E> for CloudEvent
         E: Event,
 {
     fn from(source: E) -> Self {
-        let raw_data = serde_json::to_string(&source).unwrap();
+        let raw_data = serde_json::to_string(&source.data()).unwrap();
 
         let subject = match source.subject() {
             None => { None}

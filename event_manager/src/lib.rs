@@ -1,4 +1,3 @@
-
 #[macro_use]
 extern crate serde_derive;
 
@@ -8,20 +7,32 @@ use uuid::Uuid;
 
 pub mod cloudevents;
 
-pub trait Command {
+pub trait Event: Serialize {
+    type Data: Serialize;
+
+    fn new(subject: Option<Uuid>, data: Self::Data)-> Self;
+
     fn event_type_version(&self) -> &str;
     fn event_type(&self) -> &str;
     fn event_source(&self) -> &str;
-    fn is_valid(&self) -> bool;
     fn subject(&self) -> Option<Uuid>;
+    fn data(&self) -> &Self::Data;
 }
 
-pub trait Event: Serialize {
+pub trait Command: Serialize {
+    type Data: Serialize;
+
+    fn new(subject: Option<Uuid>, data: Self::Data)-> Self;
+
     fn event_type_version(&self) -> &str;
     fn event_type(&self) -> &str;
     fn event_source(&self) -> &str;
     fn subject(&self) -> Option<Uuid>;
+    fn data(&self) -> &Self::Data;
+
+    fn is_valid(&self) -> bool;
 }
+
 
 #[derive(Debug)]
 pub struct Error {
@@ -55,9 +66,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub trait Aggregate
 {
-
     type Event: Event;
-    type Command : Command;
+    type Command: Command;
     type State: AggregateState + Clone + Default;
 
 
@@ -65,7 +75,7 @@ pub trait Aggregate
 
     fn get_events_for_subject(&self, subject: Uuid, generation: u64) -> &[Self::Event];
 
-    fn save_events(&self, events : Vec<Self::Event>);
+    fn save_events(&self, events: Vec<Self::Event>);
 
     fn apply_command(&self, cmd: &Self::Command) -> Result<()> {
         if !cmd.is_valid() {
@@ -74,18 +84,17 @@ pub trait Aggregate
 
         let state = match cmd.subject() {
             Some(subject) => {
-                let state =self.get_state_for_subject( subject);
+                let state = self.get_state_for_subject(subject);
                 let old_events = self.get_events_for_subject(subject, state.generation());
 
                 Self::apply_all(&state, old_events).unwrap()
-
-            },
+            }
             None => {
                 Self::State::default()
             }
         };
 
-        match Self::handle_command(&state, cmd){
+        match Self::handle_command(&state, cmd) {
             Err(err) => {
                 Err(err)
             }

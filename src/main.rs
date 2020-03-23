@@ -4,14 +4,15 @@ extern crate serde_derive;
 
 use eventstore::{Connection, EventData};
 use futures::Future;
-use planet_interface::PublicCommands;
 use event_manager::cloudevents::CloudEvent;
 use event_manager::{Aggregate, AggregateState, Command, Event, Error};
 use uuid::Uuid;
+use serde_json::json;
+use planet_interface::PublicCommands;
 
 mod commands;
 
-use commands::PrivateCommands;
+use commands::{PlanetCommand,PlanetCommandData,PrivateCommands};
 
 const DOMAIN_VERSION: &str = "1.0";
 
@@ -44,12 +45,21 @@ enum PlanetEventData {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PlanetEvent{
-    subject: Uuid,
+    subject: Option<Uuid>,
     data : PlanetEventData,
 }
 
 
 impl Event for PlanetEvent{
+    type Data = PlanetEventData;
+
+    fn new(subject: Option<Uuid>, data: Self::Data) -> Self {
+        PlanetEvent{
+            subject,
+            data
+        }
+    }
+
     fn event_type_version(&self) -> &str {
         "0.1.0"
     }
@@ -63,44 +73,15 @@ impl Event for PlanetEvent{
     }
 
     fn subject(&self) -> Option<Uuid> {
-        Some(self.subject)
+        self.subject
+    }
+
+    fn data(&self) -> &Self::Data {
+        &self.data
     }
 }
 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-enum PlanetCommandData {
-    Public(PublicCommands),
-    Private(PrivateCommands),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct PlanetCommand{
-    subject: Uuid,
-    data : PlanetCommandData,
-}
-
-impl Command for PlanetCommand{
-    fn event_type_version(&self) -> &str {
-        "0.1.0"
-    }
-
-    fn event_type(&self) -> &str {
-        "planet_command"
-    }
-
-    fn event_source(&self) -> &str {
-        "https://github.com/horfimbor/service_planet"
-    }
-
-    fn is_valid(&self) -> bool {
-        return true
-    }
-
-    fn subject(&self) -> Option<Uuid> {
-        return Some(self.subject)
-    }
-}
 
 struct Planet;
 
@@ -134,7 +115,7 @@ impl Aggregate for Planet {
     }
 
     fn handle_command(state: &Self::State, cmd: &Self::Command) -> Result<Vec<Self::Event>, Error> {
-        let data = match &cmd.data {
+        let data = match &cmd.data() {
             PlanetCommandData::Private(private_command) => {
                 match private_command {
                     PrivateCommands::Census => {
@@ -160,10 +141,7 @@ impl Aggregate for Planet {
             }
         };
 
-        let event = PlanetEvent{
-            data,
-            subject : cmd.subject
-        };
+        let event = PlanetEvent::new(cmd.subject(), data);
 
         Ok(vec![event])
     }
@@ -174,14 +152,14 @@ fn main() -> std::result::Result<(), Error > {
     let default_planet = PlanetData::default();
     println!("default_planet: {:?}", default_planet);
 
-    let subject = Uuid::new_v4();
+    let subject = Some(Uuid::new_v4());
 
-    let add_colon = PlanetCommand{subject, data:PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: 1000 })};
+    let add_colon = PlanetCommand::new(subject, PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: 1000 }));
     // let kill_colon = PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: -570 });
 
     let events_add_colon = Planet::handle_command(&default_planet, &add_colon)?;
 
-    println!("events - {:#?}", CloudEvent::from(events_add_colon[0].clone()));
+    println!("events - {}",  json!(CloudEvent::from(events_add_colon[0].clone())));
 
     // planet_store.append(events_add_colon[0].clone(), "planet")?;
     // let with_colon = Planet::apply_all(&default_planet, &events_add_colon)?;
