@@ -1,7 +1,11 @@
 #[macro_use]
 extern crate serde_derive;
 
+
+use eventstore::EventData;
+
 use serde::Serialize;
+use serde_json::json;
 use std::fmt;
 use uuid::Uuid;
 
@@ -10,13 +14,14 @@ pub mod cloudevents;
 pub trait Event: Serialize {
     type Data: Serialize;
 
-    fn new(subject: Option<Uuid>, data: Self::Data)-> Self;
+    fn new(subject: Option<Uuid>, data: Self::Data) -> Self;
 
     fn event_type_version(&self) -> &str;
     fn event_type(&self) -> &str;
     fn event_source(&self) -> &str;
     fn subject(&self) -> Option<Uuid>;
     fn data(&self) -> &Self::Data;
+
 }
 
 pub trait Command: Serialize {

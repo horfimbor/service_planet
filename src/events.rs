@@ -4,6 +4,7 @@
 use uuid::Uuid;
 use event_manager::{Event};
 use super::DOMAIN_VERSION;
+use eventstore::EventData;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) enum PlanetEventData {
@@ -47,5 +48,7 @@ impl Event for PlanetEvent{
     fn data(&self) -> &Self::Data {
         &self.data
     }
+
+
 }
 

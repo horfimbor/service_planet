@@ -2,6 +2,9 @@
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+extern crate tokio;
+
 use eventstore::{Connection, EventData};
 use futures::Future;
 use event_manager::cloudevents::CloudEvent;
@@ -86,8 +89,8 @@ impl Aggregate for Planet {
     }
 }
 
-
-fn main() -> std::result::Result<(), Error > {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let default_planet = PlanetData::default();
     println!("default_planet: {:?}", default_planet);
 
@@ -96,9 +99,28 @@ fn main() -> std::result::Result<(), Error > {
     let add_colon = PlanetCommand::new(subject, PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: 1000 }));
     // let kill_colon = PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: -570 });
 
-    let events_add_colon = Planet::handle_command(&default_planet, &add_colon)?;
+    let events_add_colon = Planet::handle_command(&default_planet, &add_colon).unwrap();
 
     println!("events - {}",  json!(CloudEvent::from(events_add_colon[0].clone())));
+
+    let addr = "127.0.0.1:1113".parse()?;
+    let evenstore = Connection::builder()
+        .single_node_connection(addr)
+        .await;
+
+    let payload =  json!(CloudEvent::from(events_add_colon[0].clone()));
+    let event =  EventData::json("TEST", payload.clone())?;
+    //
+    let event =event.metadata_as_json(payload);
+
+    let result = evenstore
+        .write_events("TEST-stream")
+        .push_event(event)
+        .execute()
+        .await?;
+
+    // Do something productive with the result.
+    println!("{:?}", result);
 
     // planet_store.append(events_add_colon[0].clone(), "planet")?;
     // let with_colon = Planet::apply_all(&default_planet, &events_add_colon)?;
