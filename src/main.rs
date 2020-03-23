@@ -11,76 +11,15 @@ use serde_json::json;
 use planet_interface::PublicCommands;
 
 mod commands;
-
 use commands::{PlanetCommand,PlanetCommandData,PrivateCommands};
 
+mod events;
+use events::{PlanetEvent,PlanetEventData};
+
+mod aggregate;
+use aggregate::PlanetData;
+
 const DOMAIN_VERSION: &str = "1.0";
-
-
-#[derive(Debug, Clone)]
-struct PlanetData {
-    generation: u64,
-    pop: u64,
-}
-
-impl Default for PlanetData {
-    fn default() -> Self {
-        PlanetData {
-            generation: 0,
-            pop: 0,
-        }
-    }
-}
-
-impl AggregateState for PlanetData {
-    fn generation(&self) -> u64 {
-        self.generation
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-enum PlanetEventData {
-    PopulationUpdated { pop: u64 },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct PlanetEvent{
-    subject: Option<Uuid>,
-    data : PlanetEventData,
-}
-
-
-impl Event for PlanetEvent{
-    type Data = PlanetEventData;
-
-    fn new(subject: Option<Uuid>, data: Self::Data) -> Self {
-        PlanetEvent{
-            subject,
-            data
-        }
-    }
-
-    fn event_type_version(&self) -> &str {
-        "0.1.0"
-    }
-
-    fn event_type(&self) -> &str {
-        "planet_event"
-    }
-
-    fn event_source(&self) -> &str {
-        "https://github.com/horfimbor/service_planet"
-    }
-
-    fn subject(&self) -> Option<Uuid> {
-        self.subject
-    }
-
-    fn data(&self) -> &Self::Data {
-        &self.data
-    }
-}
-
 
 
 struct Planet;
@@ -103,11 +42,11 @@ impl Aggregate for Planet {
     }
 
     fn apply_event(state: &Self::State, evt: &Self::Event) -> Result<Self::State, Error> {
-        let planet = match evt.data {
+        let planet = match evt.data() {
             PlanetEventData::PopulationUpdated { pop } => {
                 PlanetData {
-                    pop,
-                    generation: state.generation + 1,
+                    pop: *pop,
+                    generation: state.generation() + 1,
                 }
             }
         };

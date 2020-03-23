@@ -2,6 +2,7 @@
 use planet_interface::PublicCommands;
 use uuid::Uuid;
 use event_manager::{Command};
+use super::DOMAIN_VERSION;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PrivateCommands {
@@ -23,8 +24,15 @@ pub struct PlanetCommand{
 impl Command for PlanetCommand{
     type Data = PlanetCommandData;
 
+    fn new(subject: Option<Uuid>, data: Self::Data) -> Self {
+        PlanetCommand{
+            subject,
+            data
+        }
+    }
+
     fn event_type_version(&self) -> &str {
-        "0.1.0"
+       DOMAIN_VERSION
     }
 
     fn event_type(&self) -> &str {
@@ -35,10 +43,6 @@ impl Command for PlanetCommand{
         "https://github.com/horfimbor/service_planet"
     }
 
-    fn is_valid(&self) -> bool {
-        return true
-    }
-
     fn subject(&self) -> Option<Uuid> {
         return self.subject
     }
@@ -47,10 +51,7 @@ impl Command for PlanetCommand{
         return &self.data
     }
 
-    fn new(subject: Option<Uuid>, data: Self::Data) -> Self {
-        PlanetCommand{
-            subject,
-            data
-        }
+    fn is_valid(&self) -> bool {
+        return true
     }
 }
