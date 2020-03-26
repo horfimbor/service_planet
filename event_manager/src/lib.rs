@@ -1,10 +1,4 @@
-#[macro_use]
-extern crate serde_derive;
 
-use eventstore::EventData;
-
-use serde::Serialize;
-use serde_json::json;
 use std::fmt;
 use uuid::Uuid;
 
@@ -87,8 +81,7 @@ pub trait Aggregate
                 Err(err)
             }
             Ok(events) => {
-                self.save_events(events);
-                Ok(())
+                self.save_events(events)
             }
         }
     }

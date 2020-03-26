@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate serde_derive;
 
-use eventstore::{Connection, EventData};
+use eventstore::{Connection};
 use futures::executor::block_on;
 use event_manager::events::{GenericEvent, Metadata};
-use event_manager::{Aggregate, AggregateState, Result as EmResult};
+use event_manager::{Aggregate, Result as EmResult};
 use uuid::Uuid;
 use serde_json::json;
 use planet_interface::PublicCommands;
@@ -21,10 +21,6 @@ mod aggregate;
 
 use aggregate::PlanetData;
 use std::str;
-use std::net::SocketAddr;
-use std::process::Command;
-use std::error::Error;
-use crate::commands::PlanetCommandData::Public;
 use futures::TryStreamExt;
 
 const AGGREGATE_PREFIX:&str = "planet_";
@@ -68,15 +64,15 @@ impl Aggregate for Planet<'_> {
     type Command = PlanetCommand;
     type State = PlanetData;
 
-    fn load_state(&self, subject: Uuid) -> Self::State {
+    fn load_state(&self, _subject: Uuid) -> Self::State {
         Self::State::default()
     }
 
-    fn save_state(&self, state: Self::State) -> EmResult<()> {
+    fn save_state(&self, _state: Self::State) -> EmResult<()> {
         Ok(())
     }
 
-    fn load_events(&self, subject: Uuid, generation: u64) -> Vec<Self::Event> {
+    fn load_events(&self, subject: Uuid, _generation: u64) -> Vec<Self::Event> {
 
         let mut vec = Vec::new();
 
@@ -194,11 +190,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let aggregate_id = Uuid::new_v4();
 
     let meta_cmd = Metadata::new_for_command(aggregate_id);
-    // let meta_event = Metadata::new_for_event(meta_cmd);
-    //
-    // let event = PlanetEvent::new(meta_event, PlanetEventData::PopulationCreate { pop: 120 });
-    //
-    // block_on(planet.save_event(&event));
 
     let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Private( PrivateCommands::Create ) );
     planet.handle_command(&cmd);
@@ -213,53 +204,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public( PublicCommands::ChangePopulation {pop_change: -1000} ) );
     planet.handle_command(&cmd);
 
-
-// async fn main() -> EmResult<()> {
-    // let planet = Planet::new("127.0.0.1:1113".parse().unwrap());
-    //
-    // let planete_id = Uuid::new_v4();
-    //
-    // let create_planet = PlanetCommand::new(
-    //     Metadata::new_for_command(planete_id),
-    //     PlanetCommandData::Private(PrivateCommands::Create),
-    // );
-    //
-    // planet.handle_command(&create_planet).unwrap();
-
-    // let default_planet = PlanetData::default();
-    // println!("default_planet: {:?}", default_planet);
-    //
-    // let subject = Some(Uuid::new_v4());
-    //
-    // let add_colon = PlanetCommand::new(subject, PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: 1000 }));
-    // // let kill_colon = PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: -570 });
-    //
-    // let events_add_colon = Planet::handle_command(&default_planet, &add_colon).unwrap();
-    //
-    // println!("events - {}",  json!(events_add_colon));
-
-
-    // // Do something productive with the result.
-    // println!("{:?}", result);
-
-    // planet_store.append(events_add_colon[0].clone(), "planet")?;
-    // let with_colon = Planet::apply_all(&default_planet, &events_add_colon)?;
-    // println!("with_colon: {:?}", with_colon);
-    //
-    // let events_kill_colon_one = Planet::handle_command(&with_colon, &kill_colon)?;
-    // planet_store.append(events_kill_colon_one[0].clone(), "planet")?;
-    // let with_kill_one = Planet::apply_all(&with_colon, &events_kill_colon_one)?;
-    // println!("with_kill_one: {:?}", with_kill_one);
-    //
-    // let events_kill_colon_two = Planet::handle_command(&with_kill_one, &kill_colon)?;
-    // planet_store.append(events_kill_colon_two[0].clone(), "planet")?;
-    // let with_kill_two = Planet::apply_all(&with_colon, &events_kill_colon_two)?;
-    // println!("with_kill_two: {:?}", with_kill_two);
-
-    // println!(
-    //     "all events - {:#?}",
-    //     planet_store.get_all("planetevent.populationupdated")
-    // );
 
     Ok(())
 }

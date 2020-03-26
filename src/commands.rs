@@ -1,5 +1,4 @@
 use planet_interface::PublicCommands;
-use uuid::Uuid;
 use event_manager::events::{GenericEvent, Metadata};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
