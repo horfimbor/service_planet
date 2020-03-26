@@ -24,6 +24,7 @@ use std::net::SocketAddr;
 use std::process::Command;
 use std::error::Error;
 
+const AGGREGATE_PREFIX:&str = "planet_";
 
 struct Planet {
     event_store: SocketAddr
@@ -43,14 +44,14 @@ impl Planet {
             .await;
         println!("connected to : {}", self.event_store);
 
-        let stream_id = "TEST";
+        let stream_id = format!("{}{}", AGGREGATE_PREFIX, event.get_aggregate_id());
 
-        let payload = json!({
-            "event_index": "bla",
-        });
+        let payload = json!( event.get_payload() );
+        let metadata =  json!(event.get_metadata());
 
-        let data = eventstore::EventData::json("event_test", payload).unwrap();
+        let data = eventstore::EventData::json(event.get_event_type(), payload).unwrap();
 
+        let data = data.metadata_as_json(metadata);
 
         let result = connection
             .write_events(stream_id)
