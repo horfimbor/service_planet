@@ -46,13 +46,16 @@ pub trait Aggregate
     type Command: GenericEvent;
     type State: AggregateState;
 
-
+    // TODO set async
     fn load_state(&self, subject: Uuid) -> Self::State;
 
+    // TODO set async
     fn save_state(&self, state: Self::State) ->  Result<()>;
 
+    // TODO set async
     fn load_events(&self, subject: Uuid, generation: u64) -> Vec<Self::Event>;
 
+    // TODO set async
     fn save_events(&self, events: Vec<Self::Event>) -> Result<()>;
 
     // apply event must be stateless
@@ -75,6 +78,7 @@ pub trait Aggregate
         Self::apply_all(&state, events)
     }
 
+    // this is real the entry point
     fn handle_command(&self, cmd: &Self::Command) -> Result<()> {
         let state = self.get_up_to_date_state(cmd.get_aggregate_id())?;
 

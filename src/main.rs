@@ -23,26 +23,22 @@ use aggregate::PlanetData;
 use std::net::SocketAddr;
 use std::process::Command;
 use std::error::Error;
+use crate::commands::PlanetCommandData::Public;
 
 const AGGREGATE_PREFIX:&str = "planet_";
 
-struct Planet {
-    event_store: SocketAddr
+struct Planet<'a> {
+    event_store: &'a Connection
 }
 
-impl Planet {
-    fn new(socket: SocketAddr) -> Self {
+impl<'a> Planet<'a> {
+    fn new (conn:  &'a Connection) -> Self {
         Planet {
-            event_store: socket
+            event_store: conn
         }
     }
 
-    pub async fn save_event(&self, event: &<Planet as Aggregate>::Event) -> Result<(), Box<dyn std::error::Error>> {
-        let connection = eventstore::Connection::builder()
-            .with_default_user(eventstore::Credentials::new("admin", "changeit"))
-            .single_node_connection(self.event_store)
-            .await;
-        println!("connected to : {}", self.event_store);
+    pub async fn save_event(&self, event: &<Planet<'_> as Aggregate>::Event) -> Result<(), Box<dyn std::error::Error>> {
 
         let stream_id = format!("{}{}", AGGREGATE_PREFIX, event.get_aggregate_id());
 
@@ -53,7 +49,7 @@ impl Planet {
 
         let data = data.metadata_as_json(metadata);
 
-        let result = connection
+        let result = self.event_store
             .write_events(stream_id)
             .push_event(data)
             .execute()
@@ -61,13 +57,11 @@ impl Planet {
 
         println!("Write response: {:?}", result);
 
-        connection.shutdown().await;
-
         Ok(())
     }
 }
 
-impl Aggregate for Planet {
+impl Aggregate for Planet<'_> {
     type Event = PlanetEvent;
     type Command = PlanetCommand;
     type State = PlanetData;
@@ -162,15 +156,31 @@ impl Aggregate for Planet {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let planet = Planet::new("127.0.0.1:1113".parse().unwrap());
 
-    let meta_cmd = Metadata::new_for_command(Uuid::new_v4());
-    let meta_event = Metadata::new_for_event(meta_cmd);
+    let endpoint = "127.0.0.1:1113".parse().unwrap();
+    let connection = eventstore::Connection::builder()
+        .with_default_user(eventstore::Credentials::new("admin", "changeit"))
+        .single_node_connection(endpoint)
+        .await;
 
-    let event = PlanetEvent::new(meta_event, PlanetEventData::PopulationCreate { pop: 120 });
+    let planet = Planet::new(&connection);
 
-    block_on(planet.save_event(&event));
+    let aggregate_id = Uuid::new_v4();
 
+    let meta_cmd = Metadata::new_for_command(aggregate_id);
+    // let meta_event = Metadata::new_for_event(meta_cmd);
+    //
+    // let event = PlanetEvent::new(meta_event, PlanetEventData::PopulationCreate { pop: 120 });
+    //
+    // block_on(planet.save_event(&event));
+
+    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Private( PrivateCommands::Create ) );
+    planet.handle_command(&cmd);
+
+    let meta_cmd = Metadata::new_for_command(aggregate_id);
+
+    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public( PublicCommands::ChangePopulation {pop_change: -100} ) );
+    planet.handle_command(&cmd);
 
 
 // async fn main() -> EmResult<()> {
