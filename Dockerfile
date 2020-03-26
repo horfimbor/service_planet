@@ -13,8 +13,16 @@ ENV BINARY_NAME=$BINARY_NAME_DEFAULT
 # dependencies when lock and toml not is modified.
 COPY Cargo.lock .
 COPY Cargo.toml .
+
+COPY planet_interface/Cargo.toml ./planet_interface/Cargo.toml
+COPY event_manager/Cargo.toml ./event_manager/Cargo.toml
+
 RUN mkdir src \
     && echo "fn main() {print!(\"Dummy main\");} // dummy file" > src/main.rs
+
+COPY planet_interface/src ./planet_interface/src
+COPY event_manager/src ./event_manager/src
+
 RUN set -x && cargo build --target x86_64-unknown-linux-musl --release
 # TODO if the BINARY_NAME contains - it vill have deps where - is replaced with _
 RUN set -x && rm target/x86_64-unknown-linux-musl/release/deps/$BINARY_NAME*

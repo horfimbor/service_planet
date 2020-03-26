@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
 
-
 use eventstore::EventData;
 
 use serde::Serialize;
@@ -9,35 +8,11 @@ use serde_json::json;
 use std::fmt;
 use uuid::Uuid;
 
-pub mod cloudevents;
+pub mod events;
+pub mod aggregate;
 
-pub trait Event: Serialize {
-    type Data: Serialize;
-
-    fn new(subject: Option<Uuid>, data: Self::Data) -> Self;
-
-    fn event_type_version(&self) -> &str;
-    fn event_type(&self) -> &str;
-    fn event_source(&self) -> &str;
-    fn subject(&self) -> Option<Uuid>;
-    fn data(&self) -> &Self::Data;
-
-}
-
-pub trait Command: Serialize {
-    type Data: Serialize;
-
-    fn new(subject: Option<Uuid>, data: Self::Data)-> Self;
-
-    fn event_type_version(&self) -> &str;
-    fn event_type(&self) -> &str;
-    fn event_source(&self) -> &str;
-    fn subject(&self) -> Option<Uuid>;
-    fn data(&self) -> &Self::Data;
-
-    fn is_valid(&self) -> bool;
-}
-
+pub use aggregate::AggregateState;
+pub use events::GenericEvent;
 
 #[derive(Debug)]
 pub struct Error {
@@ -62,44 +37,48 @@ impl fmt::Display for Error {
     }
 }
 
-pub trait AggregateState {
-    fn generation(&self) -> u64;
-}
-
 /// A Result where failure is an event sourcing error
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub trait Aggregate
 {
-    type Event: Event;
-    type Command: Command;
-    type State: AggregateState + Clone + Default;
+    type Event: GenericEvent;
+    type Command: GenericEvent;
+    type State: AggregateState;
 
 
-    fn get_state_for_subject(&self, subject: Uuid) -> Self::State;
+    fn load_state(&self, subject: Uuid) -> Self::State;
 
-    fn get_events_for_subject(&self, subject: Uuid, generation: u64) -> &[Self::Event];
+    fn save_state(&self, state: Self::State) ->  Result<()>;
 
-    fn save_events(&self, events: Vec<Self::Event>);
+    fn load_events(&self, subject: Uuid, generation: u64) -> Vec<Self::Event>;
 
-    fn apply_command(&self, cmd: &Self::Command) -> Result<()> {
-        if !cmd.is_valid() {
-            return Err(Error { kind: Kind::CommandFailure("command is not valid".to_string()) });
-        }
+    fn save_events(&self, events: Vec<Self::Event>) -> Result<()>;
 
-        let state = match cmd.subject() {
-            Some(subject) => {
-                let state = self.get_state_for_subject(subject);
-                let old_events = self.get_events_for_subject(subject, state.generation());
+    // apply event must be stateless
+    fn apply_event(state: &Self::State, evt: &Self::Event) -> Result<Self::State>;
 
-                Self::apply_all(&state, old_events).unwrap()
-            }
-            None => {
-                Self::State::default()
-            }
-        };
+    // apply command must be stateless
+    fn apply_command(state: &Self::State, cmd: &Self::Command) -> Result<Vec<Self::Event>>;
 
-        match Self::handle_command(&state, cmd) {
+    fn apply_all(state: &Self::State, evts: Vec<Self::Event>) -> Result<Self::State> {
+        Ok(evts.iter().fold(state.clone(), |acc_state, event| {
+            Self::apply_event(&acc_state, event).unwrap()
+        }))
+    }
+
+    fn get_up_to_date_state(&self, aggregate_id: Uuid) -> Result<Self::State> {
+        let state = self.load_state(aggregate_id);
+
+        let events = self.load_events(aggregate_id, state.generation());
+
+        Self::apply_all(&state, events)
+    }
+
+    fn handle_command(&self, cmd: &Self::Command) -> Result<()> {
+        let state = self.get_up_to_date_state(cmd.get_aggregate_id())?;
+
+        match Self::apply_command(&state, cmd) {
             Err(err) => {
                 Err(err)
             }
@@ -108,13 +87,5 @@ pub trait Aggregate
                 Ok(())
             }
         }
-    }
-
-    fn apply_event(state: &Self::State, evt: &Self::Event) -> Result<Self::State>;
-    fn handle_command(state: &Self::State, cmd: &Self::Command) -> Result<Vec<Self::Event>>;
-    fn apply_all(state: &Self::State, evts: &[Self::Event]) -> Result<Self::State> {
-        Ok(evts.iter().fold(state.clone(), |acc_state, event| {
-            Self::apply_event(&acc_state, event).unwrap()
-        }))
     }
 }

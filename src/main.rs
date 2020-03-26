@@ -1,67 +1,132 @@
-
 #[macro_use]
 extern crate serde_derive;
 
-#[macro_use]
-extern crate tokio;
-
 use eventstore::{Connection, EventData};
-use futures::Future;
-use event_manager::cloudevents::CloudEvent;
-use event_manager::{Aggregate, AggregateState, Command, Event, Error};
+use futures::executor::block_on;
+use event_manager::events::{GenericEvent, Metadata};
+use event_manager::{Aggregate, AggregateState, Result as EmResult};
 use uuid::Uuid;
 use serde_json::json;
 use planet_interface::PublicCommands;
 
 mod commands;
-use commands::{PlanetCommand,PlanetCommandData,PrivateCommands};
+
+use commands::{PlanetCommand, PlanetCommandData, PrivateCommands};
 
 mod events;
-use events::{PlanetEvent,PlanetEventData};
+
+use events::{PlanetEvent, PlanetEventData};
 
 mod aggregate;
+
 use aggregate::PlanetData;
+use std::net::SocketAddr;
+use std::process::Command;
+use std::error::Error;
 
-const DOMAIN_VERSION: &str = "1.0";
 
+struct Planet {
+    event_store: SocketAddr
+}
 
-struct Planet;
+impl Planet {
+    fn new(socket: SocketAddr) -> Self {
+        Planet {
+            event_store: socket
+        }
+    }
+
+    async fn save_event(&self, event: &<Planet as Aggregate>::Event) -> Result<(), Box<dyn std::error::Error>> {
+        let connection = Connection::builder().single_node_connection(self.event_store).await;
+
+        //let payload = json!(event.get_payload());
+//
+        // let event_storable = EventData::json(event.get_event_type(), payload.clone())?;
+        //
+        // let event_storable = event_storable.metadata_as_json(json!(event.get_metadata()));
+
+        let payload = json!({
+            "is_rust_a_nice_language": true,
+        });
+
+        let event_storable = EventData::json("language-poll", payload)?;
+
+        println!("try");
+
+        let result = connection
+            .write_events("AZERRTY")
+            .push_event(event_storable)
+            .execute().await?;
+
+        println!("{:?}", result);
+
+        Ok(())
+    }
+}
 
 impl Aggregate for Planet {
     type Event = PlanetEvent;
     type Command = PlanetCommand;
     type State = PlanetData;
 
-    fn get_state_for_subject(&self, _subject: Uuid) -> Self::State {
-        return Self::State::default()
+    fn load_state(&self, subject: Uuid) -> Self::State {
+        Self::State::default()
     }
 
-    fn get_events_for_subject(&self, subject: Uuid, generation: u64) -> &[Self::Event] {
-        unimplemented!()
+    fn save_state(&self, state: Self::State) -> EmResult<()> {
+        Ok(())
     }
 
-    fn save_events(&self, events: Vec<Self::Event>) {
-        unimplemented!()
+    fn load_events(&self, subject: Uuid, generation: u64) -> Vec<Self::Event> {
+        let vec = Vec::new();
+        vec
     }
 
-    fn apply_event(state: &Self::State, evt: &Self::Event) -> Result<Self::State, Error> {
-        let planet = match evt.data() {
-            PlanetEventData::PopulationUpdated { pop } => {
-                PlanetData {
-                    pop: *pop,
-                    generation: state.generation() + 1,
+    fn save_events(&self, events: Vec<Self::Event>) -> EmResult<()> {
+        for event in &events {
+            let t = block_on(self.save_event(event));
+
+            match t {
+                Ok(_0) => {}
+                _ => {
+                    print!("ERRORO");
                 }
             }
+        }
+        Ok(())
+    }
+
+    fn apply_event(state: &Self::State, evt: &Self::Event) -> EmResult<Self::State> {
+        let mut planet = match evt.get_payload() {
+            PlanetEventData::PopulationCreate { pop } => {
+                let mut new_state = state.clone();
+                new_state.pop = pop;
+                new_state
+            }
+            PlanetEventData::PopulationIncrease { pop } => {
+                let mut new_state = state.clone();
+                new_state.pop += pop;
+                new_state
+            }
+            PlanetEventData::PopulationDecrease { pop } => {
+                let mut new_state = state.clone();
+                new_state.pop -= pop;
+                new_state
+            }
         };
+        planet.generation += 1;
         Ok(planet)
     }
 
-    fn handle_command(state: &Self::State, cmd: &Self::Command) -> Result<Vec<Self::Event>, Error> {
-        let data = match &cmd.data() {
+    fn apply_command(state: &Self::State, cmd: &Self::Command) -> EmResult<Vec<Self::Event>> {
+        let data = match &cmd.get_payload() {
             PlanetCommandData::Private(private_command) => {
                 match private_command {
                     PrivateCommands::Census => {
-                        PlanetEventData::PopulationUpdated { pop: state.pop + 12 }
+                        PlanetEventData::PopulationIncrease { pop: 12 }
+                    }
+                    PrivateCommands::Create => {
+                        PlanetEventData::PopulationCreate { pop: 500 }
                     }
                 }
             }
@@ -69,13 +134,13 @@ impl Aggregate for Planet {
                 match public_command {
                     PublicCommands::ChangePopulation { pop_change } => {
                         if *pop_change > 0 {
-                            PlanetEventData::PopulationUpdated { pop: state.pop + *pop_change as u64 }
+                            PlanetEventData::PopulationIncrease { pop: *pop_change as u64 }
                         } else {
-                            let killed = -pop_change as u64;
-                            if killed > state.pop {
-                                PlanetEventData::PopulationUpdated { pop: 0 }
+                            let decrease = -pop_change as u64;
+                            if decrease > state.pop {
+                                PlanetEventData::PopulationDecrease { pop: state.pop }
                             } else {
-                                PlanetEventData::PopulationUpdated { pop: state.pop - killed }
+                                PlanetEventData::PopulationDecrease { pop: decrease }
                             }
                         }
                     }
@@ -83,44 +148,81 @@ impl Aggregate for Planet {
             }
         };
 
-        let event = PlanetEvent::new(cmd.subject(), data);
+        let event = PlanetEvent::new(
+            Metadata::new_for_event(cmd.get_metadata()),
+            data,
+        );
 
         Ok(vec![event])
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let default_planet = PlanetData::default();
-    println!("default_planet: {:?}", default_planet);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    block_on(async {
+        use std::env;
 
-    let subject = Some(Uuid::new_v4());
 
-    let add_colon = PlanetCommand::new(subject, PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: 1000 }));
-    // let kill_colon = PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: -570 });
 
-    let events_add_colon = Planet::handle_command(&default_planet, &add_colon).unwrap();
+        let endpoint = "172.28.1.1:1113".parse().unwrap();
+        println!("Connection string: {}", endpoint);
 
-    println!("events - {}",  json!(CloudEvent::from(events_add_colon[0].clone())));
+        let connection = eventstore::Connection::builder()
+            .with_default_user(eventstore::Credentials::new("admin", "changeit"))
+            .single_node_connection(endpoint)
+            .await;
+        println!("connected to : {}", endpoint);
 
-    let addr = "127.0.0.1:1113".parse()?;
-    let evenstore = Connection::builder()
-        .single_node_connection(addr)
-        .await;
+        let stream_id = "TEST";
 
-    let payload =  json!(CloudEvent::from(events_add_colon[0].clone()));
-    let event =  EventData::json("TEST", payload.clone())?;
+        let payload = json!({
+                "event_index": "bla",
+            });
+
+        let data = eventstore::EventData::json("event_test", payload).unwrap();
+
+
+        let result = connection
+            .write_events(stream_id)
+            .push_event(data)
+            .execute()
+            .await?;
+
+        println!("Write response: {:?}", result);
+
+        connection.shutdown().await;
+
+        Ok(()) as Result<(), Box<dyn Error>>
+    })
+        .unwrap();
+
+
+// async fn main() -> EmResult<()> {
+    // let planet = Planet::new("127.0.0.1:1113".parse().unwrap());
     //
-    let event =event.metadata_as_json(payload);
+    // let planete_id = Uuid::new_v4();
+    //
+    // let create_planet = PlanetCommand::new(
+    //     Metadata::new_for_command(planete_id),
+    //     PlanetCommandData::Private(PrivateCommands::Create),
+    // );
+    //
+    // planet.handle_command(&create_planet).unwrap();
 
-    let result = evenstore
-        .write_events("TEST-stream")
-        .push_event(event)
-        .execute()
-        .await?;
+    // let default_planet = PlanetData::default();
+    // println!("default_planet: {:?}", default_planet);
+    //
+    // let subject = Some(Uuid::new_v4());
+    //
+    // let add_colon = PlanetCommand::new(subject, PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: 1000 }));
+    // // let kill_colon = PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: -570 });
+    //
+    // let events_add_colon = Planet::handle_command(&default_planet, &add_colon).unwrap();
+    //
+    // println!("events - {}",  json!(events_add_colon));
 
-    // Do something productive with the result.
-    println!("{:?}", result);
+
+    // // Do something productive with the result.
+    // println!("{:?}", result);
 
     // planet_store.append(events_add_colon[0].clone(), "planet")?;
     // let with_colon = Planet::apply_all(&default_planet, &events_add_colon)?;

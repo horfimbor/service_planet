@@ -2,53 +2,55 @@
 
 // use planet_interface::PublicEvents;
 use uuid::Uuid;
-use event_manager::{Event};
-use super::DOMAIN_VERSION;
-use eventstore::EventData;
+use event_manager::events::{GenericEvent, Metadata};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) enum PlanetEventData {
-    PopulationUpdated { pop: u64 },
+    PopulationCreate { pop: u64 },
+    PopulationIncrease { pop: u64 },
+    PopulationDecrease { pop: u64 },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct PlanetEvent{
-    subject: Option<Uuid>,
+    metadata : Metadata,
     data : PlanetEventData,
 }
 
+impl GenericEvent for PlanetEvent{
+    type Payload = PlanetEventData;
 
-
-impl Event for PlanetEvent{
-    type Data = PlanetEventData;
-
-    fn new(subject: Option<Uuid>, data: Self::Data) -> Self {
+    fn new(metadata: Metadata, payload: Self::Payload) -> Self {
         PlanetEvent{
-            subject,
-            data
+            metadata,
+            data:payload,
         }
     }
 
-    fn event_type_version(&self) -> &str {
-        "0.1.0"
+    fn get_metadata(&self) -> Metadata {
+        self.metadata.clone()
     }
 
-    fn event_type(&self) -> &str {
-        "planet_event"
+    fn get_event_type(&self) -> String {
+        match self.data {
+            PlanetEventData::PopulationCreate { .. } => {
+                "PopulationCreate".to_string()
+            },
+            PlanetEventData::PopulationIncrease { .. } => {
+                "PopulationIncrease".to_string()
+            },
+            PlanetEventData::PopulationDecrease { .. } => {
+                "PopulationDecrease".to_string()
+            },
+        }
     }
 
-    fn event_source(&self) -> &str {
-        "https://github.com/horfimbor/service_planet"
+    fn is_command(&self) -> bool {
+        false
     }
 
-    fn subject(&self) -> Option<Uuid> {
-        self.subject
+    fn get_payload(&self) -> Self::Payload {
+        self.data.clone()
     }
-
-    fn data(&self) -> &Self::Data {
-        &self.data
-    }
-
-
 }
 

@@ -1,57 +1,66 @@
-
 use planet_interface::PublicCommands;
 use uuid::Uuid;
-use event_manager::{Command};
-use super::DOMAIN_VERSION;
+use event_manager::events::{GenericEvent, Metadata};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PrivateCommands {
+pub(crate) enum PrivateCommands {
     Census,
+    Create,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PlanetCommandData {
+pub(crate) enum PlanetCommandData {
     Public(PublicCommands),
     Private(PrivateCommands),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PlanetCommand{
-    subject: Option<Uuid>,
-    data : PlanetCommandData,
+pub(crate) struct PlanetCommand {
+    metadata: Metadata,
+    data: PlanetCommandData,
 }
 
-impl Command for PlanetCommand{
-    type Data = PlanetCommandData;
+impl GenericEvent for PlanetCommand {
+    type Payload = PlanetCommandData;
 
-    fn new(subject: Option<Uuid>, data: Self::Data) -> Self {
+    fn new(metadata: Metadata, payload: Self::Payload) -> Self {
         PlanetCommand{
-            subject,
-            data
+            metadata,
+            data:payload,
         }
     }
 
-    fn event_type_version(&self) -> &str {
-       DOMAIN_VERSION
+    fn get_metadata(&self) -> Metadata {
+        self.metadata.clone()
     }
 
-    fn event_type(&self) -> &str {
-        "planet_command"
+    fn get_event_type(&self) -> String {
+        match self.data.clone() {
+            PlanetCommandData::Public(public) => {
+                match public {
+                    PublicCommands::ChangePopulation{..} => {
+                        "ChangePopulation".to_string()
+                    }
+                }
+            }
+            PlanetCommandData::Private(private) => {
+                match private {
+                    PrivateCommands::Census => {
+                        "Census".to_string()
+                    }
+                    PrivateCommands::Create => {
+                        "Create".to_string()
+                    }
+                }
+            }
+        }
     }
 
-    fn event_source(&self) -> &str {
-        "https://github.com/horfimbor/service_planet"
+    fn is_command(&self) -> bool {
+        true
     }
 
-    fn subject(&self) -> Option<Uuid> {
-        return self.subject
-    }
-
-    fn data(&self) -> &PlanetCommandData {
-        return &self.data
-    }
-
-    fn is_valid(&self) -> bool {
-        return true
+    fn get_payload(&self) -> Self::Payload {
+        self.data.clone()
     }
 }
