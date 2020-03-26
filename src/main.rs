@@ -24,6 +24,7 @@ use std::net::SocketAddr;
 use std::process::Command;
 use std::error::Error;
 use crate::commands::PlanetCommandData::Public;
+use futures::TryStreamExt;
 
 const AGGREGATE_PREFIX:&str = "planet_";
 
@@ -75,6 +76,24 @@ impl Aggregate for Planet<'_> {
     }
 
     fn load_events(&self, subject: Uuid, generation: u64) -> Vec<Self::Event> {
+
+        block_on( async {
+            let stream_id = format!("{}{}", AGGREGATE_PREFIX, subject);
+
+            let mut stream = self.event_store
+                .read_stream(stream_id.as_str())
+                .start_from_beginning()
+                .max_count(1)
+                .iterate_over();
+
+            while let Some(event) = stream.try_next().await.unwrap() {
+                let event = event.get_original_event();
+
+                println!("{:?}", event.data);
+                println!("{:?}", event.metadata);
+            }
+
+        });
         let vec = Vec::new();
         vec
     }
@@ -175,6 +194,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // block_on(planet.save_event(&event));
 
     let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Private( PrivateCommands::Create ) );
+    planet.handle_command(&cmd);
+
+    let meta_cmd = Metadata::new_for_command(aggregate_id);
+
+    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public( PublicCommands::ChangePopulation {pop_change: 20} ) );
     planet.handle_command(&cmd);
 
     let meta_cmd = Metadata::new_for_command(aggregate_id);
