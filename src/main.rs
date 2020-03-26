@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+extern crate tokio;
+
 use eventstore::{Connection};
 use futures::executor::block_on;
 use event_manager::events::{GenericEvent, Metadata};
