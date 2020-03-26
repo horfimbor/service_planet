@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use uuid::Uuid;
+use serde::de::DeserializeOwned;
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -34,8 +35,8 @@ impl Metadata {
 }
 
 
-pub trait GenericEvent: Serialize {
-    type Payload: Serialize;
+pub trait GenericEvent: Serialize + DeserializeOwned {
+    type Payload: Serialize + DeserializeOwned;
 
     fn new(metadata: Metadata, payload: Self::Payload) -> Self;
 

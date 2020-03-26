@@ -1,12 +1,29 @@
-
 use std::fmt;
 use uuid::Uuid;
 
 pub mod events;
-pub mod aggregate;
 
-pub use aggregate::AggregateState;
-pub use events::GenericEvent;
+pub use events::{GenericEvent, Metadata};
+
+
+#[cfg(feature = "eventstore-rs")]
+use futures::executor::block_on;
+
+#[cfg(feature = "eventstore-rs")]
+use eventstore::Connection;
+
+#[cfg(feature = "eventstore-rs")]
+use tokio::stream::StreamExt;
+
+#[cfg(feature = "eventstore-rs")]
+use std::str;
+
+#[cfg(feature = "eventstore-rs")]
+use serde_json::json;
+
+pub trait AggregateState: Clone + Default {
+    fn generation(&self) -> u64;
+}
 
 #[derive(Debug)]
 pub struct Error {
@@ -40,16 +57,20 @@ pub trait Aggregate
     type Command: GenericEvent;
     type State: AggregateState;
 
-    // TODO set async
+    #[cfg(feature = "eventstore-rs")]
+    fn get_aggregate_prefix() -> &'static str;
+
+    #[cfg(feature = "eventstore-rs")]
+    fn get_connection(&self) -> &Connection;
+
     fn load_state(&self, subject: Uuid) -> Self::State;
 
-    // TODO set async
-    fn save_state(&self, state: Self::State) ->  Result<()>;
+    fn save_state(&self, state: Self::State) -> Result<()>;
 
-    // TODO set async
+    #[cfg(not(feature = "eventstore-rs"))]
     fn load_events(&self, subject: Uuid, generation: u64) -> Vec<Self::Event>;
 
-    // TODO set async
+    #[cfg(not(feature = "eventstore-rs"))]
     fn save_events(&self, events: Vec<Self::Event>) -> Result<()>;
 
     // apply event must be stateless
@@ -84,5 +105,59 @@ pub trait Aggregate
                 self.save_events(events)
             }
         }
+    }
+
+
+    #[cfg(feature = "eventstore-rs")]
+    fn load_events(&self, subject: Uuid, _generation: u64) -> Vec<Self::Event> {
+        let mut vec = Vec::new();
+
+        block_on(async {
+            let stream_id = format!("{}{}", Self::get_aggregate_prefix(), subject);
+
+            let mut stream = self.get_connection()
+                .read_stream(stream_id.as_str())
+                .start_from_beginning()
+                .max_count(1)
+                .iterate_over();
+
+            while let Some(event) = stream.try_next().await.unwrap() {
+                let recorder_event = event.get_original_event();
+
+                let data_str = str::from_utf8(&recorder_event.data).unwrap().to_string();
+                let meta_str = str::from_utf8(&recorder_event.metadata).unwrap().to_string();
+
+                let data: <<Self as Aggregate>::Event as GenericEvent>::Payload = serde_json::from_str(data_str.as_str()).unwrap();
+                let metadata: Metadata = serde_json::from_str(meta_str.as_str()).unwrap();
+
+                let self_event = Self::Event::new(metadata, data);
+
+                vec.push(self_event);
+            }
+        });
+        vec
+    }
+
+    #[cfg(feature = "eventstore-rs")]
+    fn save_events(&self, events: Vec<Self::Event>) -> Result<()>{
+        block_on(async {
+            for event in &events {
+                let stream_id = format!("{}{}", Self::get_aggregate_prefix(), event.get_aggregate_id());
+
+                let payload = json!( event.get_payload() );
+                let metadata = json!(event.get_metadata());
+
+                let data = eventstore::EventData::json(event.get_event_type(), payload).unwrap();
+
+                let data = data.metadata_as_json(metadata);
+
+                let result = self.get_connection()
+                    .write_events(stream_id)
+                    .push_event(data)
+                    .execute()
+                    .await.unwrap();
+            }
+            Ok(())
+        })
     }
 }

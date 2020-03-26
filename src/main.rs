@@ -1,15 +1,10 @@
 #[macro_use]
 extern crate serde_derive;
 
-#[macro_use]
-extern crate tokio;
-
-use eventstore::{Connection};
-use futures::executor::block_on;
+use eventstore::Connection;
 use event_manager::events::{GenericEvent, Metadata};
 use event_manager::{Aggregate, Result as EmResult};
 use uuid::Uuid;
-use serde_json::json;
 use planet_interface::PublicCommands;
 
 mod commands;
@@ -24,41 +19,18 @@ mod aggregate;
 
 use aggregate::PlanetData;
 use std::str;
-use futures::TryStreamExt;
 
-const AGGREGATE_PREFIX:&str = "planet_";
+const AGGREGATE_PREFIX: &str = "planet_";
 
 struct Planet<'a> {
     event_store: &'a Connection
 }
 
 impl<'a> Planet<'a> {
-    fn new (conn:  &'a Connection) -> Self {
+    fn new(conn: &'a Connection) -> Self {
         Planet {
             event_store: conn
         }
-    }
-
-    pub async fn save_event(&self, event: &<Planet<'_> as Aggregate>::Event) -> Result<(), Box<dyn std::error::Error>> {
-
-        let stream_id = format!("{}{}", AGGREGATE_PREFIX, event.get_aggregate_id());
-
-        let payload = json!( event.get_payload() );
-        let metadata =  json!(event.get_metadata());
-
-        let data = eventstore::EventData::json(event.get_event_type(), payload).unwrap();
-
-        let data = data.metadata_as_json(metadata);
-
-        let result = self.event_store
-            .write_events(stream_id)
-            .push_event(data)
-            .execute()
-            .await?;
-
-        println!("Write response: {:?}", result);
-
-        Ok(())
     }
 }
 
@@ -67,54 +39,19 @@ impl Aggregate for Planet<'_> {
     type Command = PlanetCommand;
     type State = PlanetData;
 
+    fn get_aggregate_prefix() -> &'static str {
+        AGGREGATE_PREFIX
+    }
+
+    fn get_connection(&self) -> &Connection {
+        self.event_store
+    }
+
     fn load_state(&self, _subject: Uuid) -> Self::State {
         Self::State::default()
     }
 
     fn save_state(&self, _state: Self::State) -> EmResult<()> {
-        Ok(())
-    }
-
-    fn load_events(&self, subject: Uuid, _generation: u64) -> Vec<Self::Event> {
-
-        let mut vec = Vec::new();
-
-        block_on( async {
-            let stream_id = format!("{}{}", AGGREGATE_PREFIX, subject);
-
-            let mut stream = self.event_store
-                .read_stream(stream_id.as_str())
-                .start_from_beginning()
-                .max_count(1)
-                .iterate_over();
-
-            while let Some(event) = stream.try_next().await.unwrap() {
-                let event = event.get_original_event();
-
-               let data : PlanetEventData = serde_json::from_str( str::from_utf8(&event.data).unwrap()).unwrap();
-               let metadata : Metadata = serde_json::from_str( str::from_utf8(&event.metadata).unwrap()).unwrap();
-
-
-                let event = PlanetEvent::new(metadata, data);
-
-                vec.push( event);
-            }
-
-        });
-        vec
-    }
-
-    fn save_events(&self, events: Vec<Self::Event>) -> EmResult<()> {
-        for event in &events {
-            let t = block_on(self.save_event(event));
-
-            match t {
-                Ok(_0) => {}
-                _ => {
-                    print!("ERRORO");
-                }
-            }
-        }
         Ok(())
     }
 
@@ -181,7 +118,6 @@ impl Aggregate for Planet<'_> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let endpoint = "127.0.0.1:1113".parse().unwrap();
     let connection = eventstore::Connection::builder()
         .with_default_user(eventstore::Credentials::new("admin", "changeit"))
@@ -194,17 +130,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let meta_cmd = Metadata::new_for_command(aggregate_id);
 
-    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Private( PrivateCommands::Create ) );
+    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Private(PrivateCommands::Create));
     planet.handle_command(&cmd);
 
     let meta_cmd = Metadata::new_for_command(aggregate_id);
 
-    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public( PublicCommands::ChangePopulation {pop_change: 20} ) );
+    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: 20 }));
     planet.handle_command(&cmd);
 
     let meta_cmd = Metadata::new_for_command(aggregate_id);
 
-    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public( PublicCommands::ChangePopulation {pop_change: -1000} ) );
+    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public(PublicCommands::ChangePopulation { pop_change: -1000 }));
     planet.handle_command(&cmd);
 
 
