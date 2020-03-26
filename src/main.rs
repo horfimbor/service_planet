@@ -36,29 +36,31 @@ impl Planet {
         }
     }
 
-    async fn save_event(&self, event: &<Planet as Aggregate>::Event) -> Result<(), Box<dyn std::error::Error>> {
-        let connection = Connection::builder().single_node_connection(self.event_store).await;
+    pub async fn save_event(&self, event: &<Planet as Aggregate>::Event) -> Result<(), Box<dyn std::error::Error>> {
+        let connection = eventstore::Connection::builder()
+            .with_default_user(eventstore::Credentials::new("admin", "changeit"))
+            .single_node_connection(self.event_store)
+            .await;
+        println!("connected to : {}", self.event_store);
 
-        //let payload = json!(event.get_payload());
-//
-        // let event_storable = EventData::json(event.get_event_type(), payload.clone())?;
-        //
-        // let event_storable = event_storable.metadata_as_json(json!(event.get_metadata()));
+        let stream_id = "TEST";
 
         let payload = json!({
-            "is_rust_a_nice_language": true,
+            "event_index": "bla",
         });
 
-        let event_storable = EventData::json("language-poll", payload)?;
+        let data = eventstore::EventData::json("event_test", payload).unwrap();
 
-        println!("try");
 
         let result = connection
-            .write_events("AZERRTY")
-            .push_event(event_storable)
-            .execute().await?;
+            .write_events(stream_id)
+            .push_event(data)
+            .execute()
+            .await?;
 
-        println!("{:?}", result);
+        println!("Write response: {:?}", result);
+
+        connection.shutdown().await;
 
         Ok(())
     }
@@ -157,43 +159,17 @@ impl Aggregate for Planet {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    block_on(async {
-        use std::env;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let planet = Planet::new("127.0.0.1:1113".parse().unwrap());
 
+    let meta_cmd = Metadata::new_for_command(Uuid::new_v4());
+    let meta_event = Metadata::new_for_event(meta_cmd);
 
+    let event = PlanetEvent::new(meta_event, PlanetEventData::PopulationCreate { pop: 120 });
 
-        let endpoint = "172.28.1.1:1113".parse().unwrap();
-        println!("Connection string: {}", endpoint);
+    block_on(planet.save_event(&event));
 
-        let connection = eventstore::Connection::builder()
-            .with_default_user(eventstore::Credentials::new("admin", "changeit"))
-            .single_node_connection(endpoint)
-            .await;
-        println!("connected to : {}", endpoint);
-
-        let stream_id = "TEST";
-
-        let payload = json!({
-                "event_index": "bla",
-            });
-
-        let data = eventstore::EventData::json("event_test", payload).unwrap();
-
-
-        let result = connection
-            .write_events(stream_id)
-            .push_event(data)
-            .execute()
-            .await?;
-
-        println!("Write response: {:?}", result);
-
-        connection.shutdown().await;
-
-        Ok(()) as Result<(), Box<dyn Error>>
-    })
-        .unwrap();
 
 
 // async fn main() -> EmResult<()> {

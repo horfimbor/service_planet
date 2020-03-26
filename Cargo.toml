@@ -16,4 +16,4 @@ serde_json = "1.0"
 serde_derive = "1.0"
 futures = "0.3"
 uuid = { version  = "0.8", features = [ "v4", "serde" ] }
-tokio = { version = "0.2", features = ["net", "stream", "time", "macros"] }
+tokio = { version = "0.2", features = ["full"] }
