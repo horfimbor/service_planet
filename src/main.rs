@@ -20,6 +20,7 @@ use events::{PlanetEvent, PlanetEventData};
 mod aggregate;
 
 use aggregate::PlanetData;
+use std::str;
 use std::net::SocketAddr;
 use std::process::Command;
 use std::error::Error;
@@ -77,6 +78,8 @@ impl Aggregate for Planet<'_> {
 
     fn load_events(&self, subject: Uuid, generation: u64) -> Vec<Self::Event> {
 
+        let mut vec = Vec::new();
+
         block_on( async {
             let stream_id = format!("{}{}", AGGREGATE_PREFIX, subject);
 
@@ -89,12 +92,16 @@ impl Aggregate for Planet<'_> {
             while let Some(event) = stream.try_next().await.unwrap() {
                 let event = event.get_original_event();
 
-                println!("{:?}", event.data);
-                println!("{:?}", event.metadata);
+               let data : PlanetEventData = serde_json::from_str( str::from_utf8(&event.data).unwrap()).unwrap();
+               let metadata : Metadata = serde_json::from_str( str::from_utf8(&event.metadata).unwrap()).unwrap();
+
+
+                let event = PlanetEvent::new(metadata, data);
+
+                vec.push( event);
             }
 
         });
-        let vec = Vec::new();
         vec
     }
 
@@ -203,7 +210,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let meta_cmd = Metadata::new_for_command(aggregate_id);
 
-    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public( PublicCommands::ChangePopulation {pop_change: -100} ) );
+    let cmd = PlanetCommand::new(meta_cmd, PlanetCommandData::Public( PublicCommands::ChangePopulation {pop_change: -1000} ) );
     planet.handle_command(&cmd);
 
 
