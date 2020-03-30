@@ -86,7 +86,7 @@ dependencies = [
 name = "event_manager"
 version = "0.1.0"
 dependencies = [
- "eventstore 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "eventstore 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.105 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.105 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -97,7 +97,7 @@ dependencies = [
 
 [[package]]
 name = "eventstore"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bytes 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -899,7 +899,7 @@ name = "service_planet"
 version = "0.1.0"
 dependencies = [
  "event_manager 0.1.0",
- "eventstore 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "eventstore 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "planet_interface 0.1.0",
  "serde 1.0.105 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1280,7 +1280,7 @@ dependencies = [
 "checksum dtoa 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)" = "4358a9e11b9a09cf52383b451b49a169e8d797b68aa02301ff586d70d9661ea3"
 "checksum either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 "checksum encoding_rs 0.8.22 (registry+https://github.com/rust-lang/crates.io-index)" = "cd8d03faa7fe0c1431609dfad7bbe827af30f82e1e2ae6f7ee4fca6bd764bc28"
-"checksum eventstore 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)" = "640fb47c72c3d2d394b854f2b3345d3b2bd41a9aa4b94d0ca595597836159d76"
+"checksum eventstore 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)" = "c6b79da354a5464b3bfa99b36505fef19cc21756f43ab4dff995b6a3194bc512"
 "checksum fixedbitset 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
 "checksum fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 "checksum foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
