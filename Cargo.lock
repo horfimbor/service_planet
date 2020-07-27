@@ -202,7 +202,7 @@ name = "futures-macro"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "proc-macro-hack 0.5.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro-hack 0.5.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -231,7 +231,7 @@ dependencies = [
  "futures-task 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "memchr 2.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "pin-utils 0.1.0-alpha.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "proc-macro-hack 0.5.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "proc-macro-hack 0.5.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro-nested 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -630,7 +630,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "proc-macro-hack"
-version = "0.5.14"
+version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -1339,7 +1339,7 @@ dependencies = [
 "checksum pin-utils 0.1.0-alpha.4 (registry+https://github.com/rust-lang/crates.io-index)" = "5894c618ce612a3fa23881b152b608bafb8c56cfc22f434a3ba3120b40f7b587"
 "checksum pkg-config 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)" = "05da548ad6865900e60eaba7f589cc0783590a92e940c26953ff81ddbab2d677"
 "checksum ppv-lite86 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
-"checksum proc-macro-hack 0.5.14 (registry+https://github.com/rust-lang/crates.io-index)" = "fcfdefadc3d57ca21cf17990a28ef4c0f7c61383a28cb7604cf4a18e6ede1420"
+"checksum proc-macro-hack 0.5.18 (registry+https://github.com/rust-lang/crates.io-index)" = "99c605b9a0adc77b7211c6b1f722dcb613d68d66859a44f3d485a6da332b0598"
 "checksum proc-macro-nested 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "8e946095f9d3ed29ec38de908c22f95d9ac008e424c7bcae54c75a79c527c694"
 "checksum proc-macro2 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)" = "6c09721c6781493a2a492a96b5a5bf19b65917fe6728884e7c44dd0c60ca3435"
 "checksum prost 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ce49aefe0a6144a45de32927c77bd2859a5f7677b55f220ae5b744e87389c212"
