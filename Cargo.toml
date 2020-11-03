@@ -10,7 +10,7 @@ members = ["planet_interface", "event_manager"]
 [dependencies]
 planet_interface = { path = "planet_interface", version = "0.1.0"}
 event_manager = { path = "event_manager", version = "0.1.0", features = ["eventstore-rs"]}
-eventstore = "0.7.3"
+eventstore = "0.9.3"
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
