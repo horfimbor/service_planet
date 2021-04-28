@@ -1,0 +1,30 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "18:00"
+    timezone: Europe/Belfast
+  open-pull-requests-limit: 10
+  target-branch: master
+  reviewers:
+  - Aedius
+  ignore:
+  - dependency-name: anyhow
+    versions:
+    - 1.0.38
+    - 1.0.39
+  - dependency-name: js-sys
+    versions:
+    - 0.3.47
+    - 0.3.48
+    - 0.3.49
+  - dependency-name: serde_json
+    versions:
+    - 1.0.61
+    - 1.0.62
+    - 1.0.63
+  - dependency-name: quote
+    versions:
+    - 1.0.8
